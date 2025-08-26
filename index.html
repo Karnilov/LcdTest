@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Эмулятор устройства 320×480 — v3</title>
+<style>
+  :root{--device-w:320px;--device-h:480px;--bg:#0f1724;--screen-bg:#0b1220;--panel-bg:linear-gradient(180deg,#111827,#0b1220);--accent:#60a5fa;--muted:#9aa6b2}
+  html,body{height:100%;margin:0;background:var(--bg);font-family:Inter,system-ui,Roboto,Arial;color:#e6eef6}
+  .wrap{min-height:100vh;display:flex;align-items:flex-start;justify-content:center;gap:18px;padding:28px;box-sizing:border-box}
+  .device{width:calc(var(--device-w) + 24px);height:calc(var(--device-h) + 64px);padding:12px;background:linear-gradient(180deg,#d6dee9,#9aa8b8);border-radius:18px;box-shadow:0 18px 50px rgba(2,6,23,0.7);display:flex;align-items:center;justify-content:center}
+  .screen{width:var(--device-w);height:var(--device-h);background:var(--screen-bg);border-radius:12px;overflow:hidden;position:relative;box-shadow:0 8px 30px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.03);display:flex;flex-direction:column}
+  .topbar{height:48px;background:var(--panel-bg);display:flex;align-items:center;justify-content:space-between;padding:6px 8px;gap:8px;box-sizing:border-box;border-bottom:1px solid rgba(255,255,255,0.03);flex-shrink:0}
+  .top-left,.top-right{display:flex;align-items:center;gap:8px}
+  .brand{font-weight:600;font-size:13px;color:#dbeafe}
+  .status-small{font-size:11px;color:var(--muted)}
+  .wifi{width:34px;height:22px;display:flex;align-items:center;justify-content:center;position:relative}
+  .wifi .bars{display:flex;flex-direction:column;gap:2px;transform:rotate(90deg);width:22px;height:18px;align-items:center;justify-content:center}
+  .wifi .bar{width:4px;height:4px;background:#6b7280;border-radius:2px;opacity:0.9;transition:background .15s}
+  .bar.white{background:#ffffff}
+  .bar.gray{background:#6b7280}
+  .wifi .check{position:absolute;right:-6px;bottom:-6px;background:#111827;border-radius:10px;padding:2px 4px;font-size:10px;color:#bbf7d0;border:1px solid rgba(255,255,255,0.04)}
+  .wifi .cross{position:absolute;right:-6px;bottom:-6px;background:#111827;border-radius:10px;padding:2px 4px;font-size:10px;color:#fda4af;border:1px solid rgba(255,255,255,0.04)}
+  .server{width:36px;height:22px;display:flex;align-items:center;gap:6px;padding:4px;border-radius:6px}
+  .server .dot{width:8px;height:8px;border-radius:50%;background:#6b7280;border:1px solid rgba(255,255,255,0.03)}
+  .server.connected .dot{background:#86efac}
+  .server.timeout .dot{background:#facc15}
+  .server.failed .dot{background:#fda4af}
+  .battery{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .battery .icon{width:28px;height:14px;border:1px solid rgba(255,255,255,0.12);border-radius:3px;position:relative;padding:2px;box-sizing:border-box}
+  .battery .icon::after{content:'';position:absolute;right:-4px;top:3px;width:3px;height:8px;border-radius:1px;background:rgba(255,255,255,0.12)}
+  .battery .level{height:100%;width:60%;background:linear-gradient(90deg,#a3e635,#65a30d);border-radius:2px;transition:width .4s}
+  .content{padding:10px;box-sizing:border-box;flex:1;overflow:auto;position:relative}
+  .card{background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:10px;padding:10px;margin-bottom:10px;box-shadow:0 6px 18px rgba(2,6,23,0.5);border:1px solid rgba(255,255,255,0.02)}
+  .menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .big-btn{background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:10px;padding:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:transform .12s,box-shadow .12s}
+  .big-btn:hover{transform:translateY(-4px);box-shadow:0 8px 30px rgba(2,6,23,0.6)}
+  .big-btn .title{font-weight:700;font-size:15px}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .input{background: rgba(255,255,255,0.02);border: 1px solid rgba(255,255,255,0.04);padding:8px;border-radius:8px;color:#e6eef6;font-size:14px;outline:none}
+  .btn{padding:10px 12px;border-radius:10px;border:none;cursor:pointer;font-weight:700;box-shadow:0 6px 18px rgba(2,6,23,0.5);transition:transform .09s}
+  .btn:active{transform:translateY(2px)}
+  .btn.red{background: linear-gradient(180deg,#7f1d1d,#4c0000);color:#fff}
+  .btn.red.light{background: linear-gradient(180deg,#b91c1c,#7f1d1d)}
+  .btn.green{background: linear-gradient(180deg,#15803d,#065f46);color:#fff}
+  .btn.green.light{background: linear-gradient(180deg,#34d399,#10b981)}
+  .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+  .muted{color:var(--muted);font-size:12px}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .chip{padding:6px 8px;border-radius:8px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.03);font-size:13px;cursor:pointer}
+  .kbd{position:absolute;left:8px;right:8px;bottom:8px;background: linear-gradient(180deg,#081024,#0b1220);border-radius:10px;padding:8px;border:1px solid rgba(255,255,255,0.03);box-shadow:0 18px 40px rgba(2,6,23,0.6);display:none;flex-direction:column;gap:6px;z-index:40}
+  .kbd.active{display:flex}
+  .kbd-row{display:flex;gap:6px}
+  .key{flex:1;padding:8px;border-radius:8px;background:rgba(255,255,255,0.02);text-align:center;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,0.02)}
+  .key.wide{flex:2}
+  .key.func{background:rgba(255,255,255,0.03);font-weight:700;color:var(--muted)}
+  .modal-back{position:absolute;left:0;right:0;top:48px;bottom:0;background:rgba(2,6,23,0.6);display:flex;align-items:center;justify-content:center;z-index:90}
+  .modal{width:280px;background:#0b1220;border-radius:10px;padding:14px;border:1px solid rgba(255,255,255,0.04);box-shadow:0 20px 60px rgba(2,6,23,0.7)}
+  .toast{position:absolute;left:50%;transform:translateX(-50%);bottom:12px;background:#0f1724;padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.04)}
+  @keyframes nudge {0%{transform:translateX(0)}25%{transform:translateX(18px)}50%{transform:translateX(-18px)}75%{transform:translateX(10px)}100%{transform:translateX(0)}}
+  .nudge{animation:nudge .6s ease}
+  .hidden{display:none}
+  .side-panel{width:260px;padding:12px;border-radius:10px;background:linear-gradient(180deg,#071426,#0b1a2a);box-shadow:0 18px 50px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.03)}
+  .side-panel h4{margin:0 0 8px 0}
+  .toggle{display:flex;align-items:center;gap:8px}
+  .toggle input[type=checkbox]{width:40px;height:22px;appearance:none;border-radius:12px;background:#1f2937;position:relative;outline:none;cursor:pointer}
+  .toggle input[type=checkbox]:checked{background:#16a34a}
+  .toggle input[type=checkbox]::after{content:'';position:absolute;left:4px;top:4px;width:14px;height:14px;background:#fff;border-radius:10px;transition:left .12s}
+  .toggle input[type=checkbox]:checked::after{left:22px}
+  .control-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
+  .card-number{position:absolute;top:52px;left:8px;right:8px;background:rgba(255,255,255,0.02);padding:6px;border-radius:8px;text-align:center;font-weight:700;z-index:25;border:1px solid rgba(255,255,255,0.03)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="device" role="application" aria-label="Эмулятор устройства 320 на 480">
+    <div class="screen" id="screen">
+      <div class="topbar">
+        <div class="top-left">
+          <div class="wifi" id="wifi"><div class="bars"><div class="bar" data-index="1"></div><div class="bar" data-index="2"></div><div class="bar" data-index="3"></div><div class="bar" data-index="4"></div></div><div class="check hidden" id="wifiCheck">✓</div><div class="cross hidden" id="wifiCross">✕</div></div>
+          <div class="server" id="server"><div class="dot"></div><div style="font-size:12px;color:var(--muted)">srv</div></div>
+          <div class="brand">Эмулятор</div>
+        </div>
+        <div class="top-right">
+          <div class="status-small" id="clock">--:--</div>
+          <div class="battery"><div class="icon"><div class="level" id="batLevel" style="width:74%"></div></div><div class="status-small" id="batPercent">74%</div></div>
+        </div>
+      </div>
+
+      <!-- Card number display (showing 0-255 0-255 0-255 0-255) -->
+      <div id="cardNumberDisplay" class="card-number hidden">№ карты: —</div>
+
+      <div class="content" id="content">
+        <!-- Start screen: readonly credentials display -->
+        <div id="startScreen" class="card">
+          <h3 style="margin:6px 0 8px 0">Подключение к Wi-Fi</h3>
+          <div style="display:flex;gap:8px;align-items:flex-start">
+            <div style="flex:1">
+              <div class="field"><label class="muted">SSID</label><div class="input" id="ssidDisplay" tabindex="0">не указано</div></div>
+              <div class="field" style="margin-top:8px"><label class="muted">Логин</label><div class="input" id="loginDisplay" tabindex="0">не указано</div></div>
+              <div class="field" style="margin-top:8px"><label class="muted">Пароль</label><div class="input" id="passDisplay" tabindex="0">••••••</div></div>
+            </div>
+            <div style="width:120px;display:flex;flex-direction:column;gap:8px;align-items:stretch">
+              <button class="btn ghost" id="connectBtn">Подключиться</button>
+              <button class="btn ghost" id="disconnectBtn">Отключить</button>
+              <button class="btn ghost" id="toMain">Главное меню</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Main menu -->
+        <div id="mainMenu" class="card hidden">
+          <h3 style="margin:6px 0 8px 0">Главное меню</h3>
+          <div class="menu-grid">
+            <div class="big-btn" id="openWithdraw"><div class="title">Снятие</div><div class="sub">Снять средства с карты</div></div>
+            <div class="big-btn" id="openTopup"><div class="title">Начисление</div><div class="sub">Пополнить счёт</div></div>
+            <div class="big-btn" id="openDiag"><div class="title">Диагностика</div><div class="sub">Проверить карту/сервер</div></div>
+            <div class="big-btn" id="openAbout"><div class="title">Инфо</div><div class="sub">Информация об эмуляторе</div></div>
+          </div>
+        </div>
+
+        <!-- Withdraw window -->
+        <div id="withdrawCard" class="card hidden">
+          <h3 style="margin:6px 0 8px 0">Снятие средств</h3>
+          <div class="field"><label class="muted">Сумма, ₽</label><input type="number" id="withdrawAmount" class="input" placeholder="0.00" min="0" step="0.01"></div>
+          <div style="margin-top:10px;display:flex;gap:8px;align-items:center;justify-content:space-between">
+            <div style="display:flex;gap:8px;align-items:center"><button class="btn red" id="withdrawBtn">Снять</button><div class="muted">Карта: <span id="cardStatus">отсутствует</span></div></div>
+            <div class="muted">Баланс: <strong id="withdrawBalance">—</strong></div>
+          </div>
+        </div>
+
+        <!-- Top-up window -->
+        <div id="topupCard" class="card hidden">
+          <h3 style="margin:6px 0 8px 0">Начисление средств</h3>
+          <div class="field"><label class="muted">Сумма, ₽</label><input type="number" id="topupAmount" class="input" placeholder="0.00" min="0" step="0.01"></div>
+          <div style="margin-top:10px;display:flex;gap:8px;align-items:center;justify-content:space-between">
+            <div style="display:flex;gap:8px;align-items:center"><button class="btn green" id="topupBtn">Пополнить</button><div class="muted">Карта: <span id="cardStatus2">отсутствует</span></div></div>
+            <div class="muted">Баланс: <strong id="topupBalance">—</strong></div>
+          </div>
+        </div>
+
+        <!-- Diagnostics -->
+        <div id="diag" class="card hidden"><h3 style="margin:6px 0 8px 0">Диагностика и тесты</h3><div style="display:flex;flex-direction:column;gap:8px"><div class="muted">Эмуляция карты: внешняя кнопка</div><div class="muted">Сервер: <span id="srvTime">—</span></div></div></div>
+
+        <!-- About -->
+        <div id="about" class="card hidden"><h3 style="margin:6px 0 8px 0">О эмуляторе</h3><p class="muted">Эмулятор устройства 320×480. Все операции имитируются — реальные сети и карты не используются.</p></div>
+
+      </div>
+
+      <!-- on-screen keyboard -->
+      <div class="kbd" id="keyboard"></div>
+
+      <!-- modal root INSIDE the device so confirmations appear on the emulated screen -->
+      <div id="modalRoot" class="hidden"></div>
+
+    </div>
+  </div>
+
+  <!-- Side controls (outside device) -->
+  <div class="side-panel" aria-hidden="false">
+    <h4>Управление (вне экрана)</h4>
+    <div class="control-row"><div class="muted">Кнопка: Поднести / Убрать карту</div><button class="chip" id="externalCard">Поднести карту</button></div>
+    <div class="control-row toggle"><div class="muted">Интернет (Wi‑Fi)</div><input type="checkbox" id="toggleInternet"></div>
+    <div class="control-row toggle"><div class="muted">Сервер</div><input type="checkbox" id="toggleServer"></div>
+    <div style="height:8px"></div>
+    <div style="display:flex;gap:8px"><button class="chip" id="toStart">Экран: Wi‑Fi</button><button class="chip" id="toMain2">Экран: Меню</button></div>
+  </div>
+</div>
+
+<script>
+/* v3: confirmation modal inside device + card number generation/display
+   - при поднесении карты генерируется номер в формате 0-255 0-255 0-255 0-255 и отображается сверху
+   - модальное окно подтверждения теперь показывается внутри экрана устройства
+   - при подтверждении операции номер карты дополняется к результату (показывается в модальном или баннере)
+*/
+
+const STATE = {
+  wifiStatus: 'idle', serverStatus: 'idle', cardPresent: false, battery:74,
+  eeprom:{ssid:'Home_Net', login:'user01', password:'pass123'},
+  cardBalance: null, cardNumber: null
+};
+
+function log(...a){ console.debug('[EMU]', ...a); }
+
+// UI refs
+const wifiEl = document.getElementById('wifi'), bars = Array.from(wifiEl.querySelectorAll('.bar'));
+const wifiCheck = document.getElementById('wifiCheck'), wifiCross = document.getElementById('wifiCross');
+const serverEl = document.getElementById('server'); const batLevel = document.getElementById('batLevel'); const batPercent = document.getElementById('batPercent');
+const cardNumberDisplay = document.getElementById('cardNumberDisplay');
+
+function updateTopBar(){ wifiEl.classList.remove('connecting','connected','failed'); wifiCheck.classList.add('hidden'); wifiCross.classList.add('hidden'); if(STATE.wifiStatus==='connecting'){ wifiEl.classList.add('connecting'); startWifiAnimation(); } else if(STATE.wifiStatus==='connected'){ stopWifiAnimation(); wifiEl.classList.add('connected'); bars.forEach(b=>{b.classList.remove('gray');b.classList.add('white')}); wifiCheck.classList.remove('hidden'); } else if(STATE.wifiStatus==='failed'){ stopWifiAnimation(); wifiEl.classList.add('failed'); bars.forEach(b=>{b.classList.remove('white');b.classList.add('gray')}); wifiCross.classList.remove('hidden'); } else { stopWifiAnimation(); bars.forEach(b=>{b.classList.remove('white');b.classList.add('gray')}); }
+  serverEl.classList.remove('connected','timeout','failed'); if(STATE.serverStatus==='connected') serverEl.classList.add('connected'); else if(STATE.serverStatus==='timeout') serverEl.classList.add('timeout'); else if(STATE.serverStatus==='failed') serverEl.classList.add('failed'); batLevel.style.width = Math.max(2, STATE.battery) + '%'; batPercent.textContent = STATE.battery + '%'; }
+
+let wifiAnimInterval=null, wifiAnimIdx=0;
+function startWifiAnimation(){ if(wifiAnimInterval) return; wifiAnimIdx=0; wifiAnimInterval=setInterval(()=>{ bars.forEach(b=>b.classList.remove('white')); const idx=wifiAnimIdx%bars.length; bars.forEach((b,i)=> b.classList.toggle('gray', i!==idx)); bars[idx].classList.add('white'); wifiAnimIdx++; },220); }
+function stopWifiAnimation(){ if(wifiAnimInterval){ clearInterval(wifiAnimInterval); wifiAnimInterval=null; } }
+
+function updateClock(){ try{ const opt={hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Europe/Oslo'}; document.getElementById('clock').textContent = new Intl.DateTimeFormat('ru-RU',opt).format(new Date()); }catch(e){ const d=new Date(); document.getElementById('clock').textContent = String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); } }
+
+function showScreen(id){ const screens=['startScreen','mainMenu','withdrawCard','topupCard','diag','about']; screens.forEach(sid=>{ const el=document.getElementById(sid); if(el) el.classList.toggle('hidden', sid!==id); }); }
+
+function refreshCredDisplays(){ document.getElementById('ssidDisplay').textContent = STATE.eeprom.ssid || '—'; document.getElementById('loginDisplay').textContent = STATE.eeprom.login || '—'; document.getElementById('passDisplay').textContent = STATE.eeprom.password ? '••••••' : '—'; }
+
+function updateCardDisplays(){ const txt = STATE.cardPresent ? 'присутствует' : 'отсутствует'; document.getElementById('cardStatus').textContent = txt; document.getElementById('cardStatus2').textContent = txt; if(STATE.cardPresent){ if(STATE.cardBalance==null) STATE.cardBalance = generateBalance(); document.getElementById('withdrawBalance').textContent = formatMoney(STATE.cardBalance); document.getElementById('topupBalance').textContent = formatMoney(STATE.cardBalance); // show card number on top
+    if(!STATE.cardNumber) STATE.cardNumber = generateCardNumber(); cardNumberDisplay.textContent = '№ карты: ' + STATE.cardNumber; cardNumberDisplay.classList.remove('hidden');
+  } else { document.getElementById('withdrawBalance').textContent = '—'; document.getElementById('topupBalance').textContent = '—'; STATE.cardBalance=null; STATE.cardNumber=null; cardNumberDisplay.classList.add('hidden'); }
+}
+
+function generateBalance(){ const base = Math.floor(Math.random()*10000 + Math.random()*2000); const cents = Math.floor(Math.random()*100); return + (base + cents/100).toFixed(2); }
+function formatMoney(n){ return n.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' ₽'; }
+function generateCardNumber(){ // format: 0-255 0-255 0-255 0-255
+  const parts = []; for(let i=0;i<4;i++) parts.push(String(Math.floor(Math.random()*256))); return parts.join(' ');
+}
+
+function emulateConnect(){ if(!STATE.eeprom.ssid || !STATE.eeprom.login || !STATE.eeprom.password){ STATE.wifiStatus='failed'; updateTopBar(); return; } STATE.wifiStatus='connecting'; updateTopBar(); setTimeout(()=>{ if(document.getElementById('toggleInternet').checked){ STATE.wifiStatus='connected'; STATE.serverStatus = document.getElementById('toggleServer').checked ? 'connected' : 'failed'; } else { STATE.wifiStatus='failed'; STATE.serverStatus='failed'; } updateTopBar(); document.getElementById('srvTime').textContent = new Date().toLocaleString(); },900); }
+function emulateDisconnect(){ STATE.wifiStatus='idle'; STATE.serverStatus='idle'; updateTopBar(); }
+
+function showToast(msg,ms=1400){ const t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.getElementById('screen').appendChild(t); setTimeout(()=>t.remove(), ms); }
+
+/* Modal now displays inside device. When showing confirm we include card number if present */
+function showConfirmOnDevice(title, text, onOk, onCancel){ const root = document.getElementById('modalRoot'); root.innerHTML=''; root.classList.remove('hidden'); const back = document.createElement('div'); back.className='modal-back'; const modal = document.createElement('div'); modal.className='modal'; // include card number if available
+  const cardLine = STATE.cardNumber ? `<div style="font-size:12px;margin-bottom:8px;color:var(--muted)">Карта: ${STATE.cardNumber}</div>` : '';
+  modal.innerHTML = `<h3>${title}</h3><p>${text}</p>${cardLine}`;
+  const btns = document.createElement('div'); btns.style.display='flex'; btns.style.gap='8px'; btns.style.marginTop='10px'; const ok = document.createElement('button'); ok.className='btn green'; ok.textContent='Подтвердить'; const cancel = document.createElement('button'); cancel.className='btn ghost'; cancel.textContent='Отмена'; ok.onclick = ()=>{ root.classList.add('hidden'); root.innerHTML=''; // upon confirm, also display card number as short banner
+    if(STATE.cardNumber){ showToast('Карта: ' + STATE.cardNumber, 2400); }
+    onOk && onOk(); };
+  cancel.onclick = ()=>{ root.classList.add('hidden'); root.innerHTML=''; onCancel && onCancel(); };
+  btns.appendChild(ok); btns.appendChild(cancel); modal.appendChild(btns); back.appendChild(modal); root.appendChild(back);
+}
+
+/* Events */
+document.getElementById('connectBtn').addEventListener('click', emulateConnect);
+document.getElementById('disconnectBtn').addEventListener('click', emulateDisconnect);
+document.getElementById('toMain').addEventListener('click', ()=> showScreen('mainMenu'));
+document.getElementById('toStart').addEventListener('click', ()=> showScreen('startScreen'));
+document.getElementById('toMain2').addEventListener('click', ()=> showScreen('mainMenu'));
+
+document.getElementById('openWithdraw').addEventListener('click', ()=> showScreen('withdrawCard'));
+document.getElementById('openTopup').addEventListener('click', ()=> showScreen('topupCard'));
+document.getElementById('openDiag').addEventListener('click', ()=> showScreen('diag'));
+document.getElementById('openAbout').addEventListener('click', ()=> showScreen('about'));
+
+// Withdraw
+document.getElementById('withdrawBtn').addEventListener('click', (e)=>{
+  const amount = parseFloat(document.getElementById('withdrawAmount').value || 0); const btn = e.currentTarget;
+  if(!STATE.cardPresent){ btn.classList.remove('nudge'); void btn.offsetWidth; btn.classList.add('nudge'); return; }
+  if(!amount || amount <= 0){ showToast('Введите корректную сумму'); return; }
+  showConfirmOnDevice('Подтвердите снятие', `Снять ${amount.toFixed(2)} ₽?`, ()=>{
+    showToast('Обработка...'); setTimeout(()=>{ if(!document.getElementById('toggleServer').checked){ showToast('Ошибка: тайм-аут сервера', 2000); } else { STATE.cardBalance = Math.max(0, +(STATE.cardBalance - amount).toFixed(2)); updateCardDisplays(); showToast('Операция успешно выполнена', 1600); } },900);
+  }, ()=>{ showToast('Отмена'); });
+});
+
+// Topup
+document.getElementById('topupBtn').addEventListener('click', (e)=>{
+  const amount = parseFloat(document.getElementById('topupAmount').value || 0); const btn=e.currentTarget;
+  if(!STATE.cardPresent){ btn.classList.remove('nudge'); void btn.offsetWidth; btn.classList.add('nudge'); return; }
+  if(!amount || amount <= 0){ showToast('Введите корректную сумму'); return; }
+  showConfirmOnDevice('Подтвердите пополнение', `Пополнить на ${amount.toFixed(2)} ₽?`, ()=>{
+    showToast('Обработка...'); setTimeout(()=>{ if(!document.getElementById('toggleServer').checked){ showToast('Ошибка: тайм-аут сервера', 2000); } else { STATE.cardBalance = +(STATE.cardBalance + amount).toFixed(2); updateCardDisplays(); showToast('Пополнение успешно', 1600); } },800);
+  }, ()=>{ showToast('Отмена'); });
+});
+
+// External controls
+const externalCardBtn = document.getElementById('externalCard');
+externalCardBtn.addEventListener('click', ()=>{ STATE.cardPresent = !STATE.cardPresent; externalCardBtn.textContent = STATE.cardPresent ? 'Убрать карту' : 'Поднести карту'; if(STATE.cardPresent && !STATE.cardNumber) STATE.cardNumber = generateCardNumber(); updateCardDisplays(); showToast('Карта ' + (STATE.cardPresent ? 'поднесена' : 'убрана')); });
+
+const toggleInternet = document.getElementById('toggleInternet'); toggleInternet.addEventListener('change', ()=>{ if(toggleInternet.checked){ STATE.wifiStatus='connected'; } else { STATE.wifiStatus='failed'; document.getElementById('toggleServer').checked = false; STATE.serverStatus='failed'; } updateTopBar(); });
+const toggleServer = document.getElementById('toggleServer'); toggleServer.addEventListener('change', ()=>{ if(toggleServer.checked){ STATE.serverStatus = toggleInternet.checked ? 'connected' : 'timeout'; } else { STATE.serverStatus='failed'; } updateTopBar(); });
+
+// download EEPROM
+// (readonly) - allow downloading copy
+function downloadEEP(){ const data = JSON.stringify(STATE.eeprom, null, 2); const blob=new Blob([data],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='eeprom_'+Date.now()+'.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
+// attach
+// earlier saveEeprom button removed; keep ability via console
+
+/* keyboard for amounts */
+const keyboard = document.getElementById('keyboard'); let focusedAmount=null;
+function renderKeyboard(){ const layout=[['7','8','9'],['4','5','6'],['1','2','3'],['0','.','back']]; keyboard.innerHTML=''; layout.forEach(row=>{ const r=document.createElement('div'); r.className='kbd-row'; row.forEach(k=>{ const el=document.createElement('div'); el.className='key'; if(k==='0') el.classList.add('wide'); el.textContent=(k==='back')?'⌫':k; el.onclick=()=> onKey(k); r.appendChild(el); }); keyboard.appendChild(r); }); }
+function onKey(k){ if(!focusedAmount) return; if(k==='back'){ focusedAmount.value = focusedAmount.value.slice(0,-1); return; } if(k==='.' && focusedAmount.value.includes('.')) return; focusedAmount.value += k; }
+function showKeyboardForAmount(el){ focusedAmount = el; keyboard.classList.add('active'); renderKeyboard(); }
+function hideKeyboard(){ focusedAmount=null; keyboard.classList.remove('active'); }
+['withdrawAmount','topupAmount'].forEach(id=>{ const el=document.getElementById(id); el.addEventListener('focus', ()=> showKeyboardForAmount(el)); el.addEventListener('blur', ()=> setTimeout(()=> hideKeyboard(),150)); });
+
+// init
+function init(){ refreshCredDisplays(); updateTopBar(); updateCardDisplays(); showScreen('startScreen'); updateClock(); setInterval(updateClock,1000); setInterval(()=>{ STATE.battery = Math.max(2, STATE.battery - (Math.random()<0.02?1:0)); updateTopBar(); },9000); }
+init();
+
+</script>
+</body>
+</html>
